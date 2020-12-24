@@ -82,7 +82,7 @@ buttons += [
             url=f"t.me/{dispatcher.bot.username}?start=help",
         ),
         InlineKeyboardButton(
-            text="Movies Group 🍿", url="https://t.me/Elizabeth_Support"
+            text="Movies Group 🍿", url="https://t.me/exploremoviez"
         ),
     ]
 ]
