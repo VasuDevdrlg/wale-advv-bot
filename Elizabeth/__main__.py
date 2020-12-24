@@ -50,15 +50,15 @@ PM_START_TEXT = f"""
 Hey there! my name is *{dispatcher.bot.first_name}*.
 Any questions on how to use me? use /help
 
-Join Our [Group](https://t.me/Elizabeth_Support) If You wanna Report Issue 🙂
+Iam Specialised In Maintaining [Exploremoviez](https://t.me/exploremoviez)👈🍿
 
 I'm here to make your group management fun and easy!
 I have lots of handy features ☺️ such as :
 
-• flood control.         • Note'S keeping system.
+• Flood control.         • Note'S keeping system.
 • Warning System.   • Predetermined Filters.
 
-*Managed With ❤️ By :* [༄ᶦᶰᵈ᭄𖤓𝐏 𝐑 𝐈 𝐍 𝐂 𝐄™ 🇮🇳](https://t.me/p_rinc_e)
+*Managed With ❤️ By :* [༄ᶦᶰᵈ᭄𖤓𝐌𝐑.𝐕𝐀𝐒𝐔​™ 🇮🇳](https://t.me/mrvasuz)
 
 Wanna Add me to your Group? Just click the button below!
 """
@@ -66,10 +66,10 @@ Wanna Add me to your Group? Just click the button below!
 buttons = [
     [
         InlineKeyboardButton(
-            text="Add to Group 👥", url="t.me/elizabeth_tgbot?startgroup=true"
+            text="Add to Group 👥", url="t.me/explorerobot?startgroup=true"
         ),
         InlineKeyboardButton(
-            text="Gban Logs 🚫", url="https://t.me/telegram"
+            text="Developer👨‍💻", url="https://t.me/mrvasuz"
         ),
     ]
 ]
@@ -82,7 +82,7 @@ buttons += [
             url=f"t.me/{dispatcher.bot.username}?start=help",
         ),
         InlineKeyboardButton(
-            text="Support Group 🎗️", url="https://t.me/Elizabeth_Support"
+            text="Movies Group 🍿", url="https://t.me/Elizabeth_Support"
         ),
     ]
 ]
