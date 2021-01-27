@@ -1,97 +1,196 @@
+*- coding: utf-8 -*-
+# (c) Shrimadhav U K
+
+import json
 import os
+import re
+import requests
+import time
 
-from datetime import datetime
+from typing import Optional, List
 
-from removebg import RemoveBg
+from telegram import Message, Update, Bot, User, InlineQueryResultArticle, ParseMode, InputTextMessageContent, MessageEntity, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, MessageHandler, Filters, InlineQueryHandler, CommandHandler, run_async
 
-from userge import userge, Config, Message
+# the secret configuration specific things
+ENV = bool(os.environ.get("ENV", False))
+if ENV:
+    from config import Config
+else:
+    from config import Config
 
-from userge.utils import progress
 
-IMG_PATH = Config.DOWN_PATH + "dl_image.jpg"
+import logging
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-@userge.on_cmd('removebg', about={
 
-    'header': "Removes Background from Image (50 Calls per Month in the free API)",
+# this method will call the API, and return in the appropriate format
+# with the name provided.
+def ReTrieveFile(input_file_name, output_file_name):
+    if os.path.exists(output_file_name):
+        os.remove(output_file_name)
+    headers = {
+        "X-API-Key": Config.REM_BG_API_KEY,
+    }
+    files = {
+        "image_file": (input_file_name, open(input_file_name, 'rb')),
+    }
+    r = requests.post("https://api.remove.bg/v1.0/removebg", headers=headers, files=files, allow_redirects=True, stream=True)
+    with open(output_file_name, 'wb') as fd:
+        for chunk in r.iter_content(chunk_size=Config.CHUNK_SIZE):
+            fd.write(chunk)
+    return output_file_name
 
-    'usage': "{tr}removebg [reply to any photo | direct link of photo]"})
 
-async def remove_background(message: Message):
+def ReTrieveURL(input_url, output_file_name):
+    if os.path.exists(output_file_name):
+        os.remove(output_file_name)
+    headers = {
+        "X-API-Key": Config.REM_BG_API_KEY,
+    }
+    data = {
+      "image_url": input_url
+    }
+    r = requests.post("https://api.remove.bg/v1.0/removebg", headers=headers, data=data, allow_redirects=True, stream=True)
+    with open(output_file_name, 'wb') as fd:
+        for chunk in r.iter_content(chunk_size=Config.CHUNK_SIZE):
+            fd.write(chunk)
+    return output_file_name
 
-    if not Config.REMOVE_BG_API_KEY:
 
-        await message.edit(
+# the Telegram trackings
+from chatbase import Message
 
-            "Get the API from <a href='https://www.remove.bg/b/background-removal-api'>HERE "
 
-            "</a> & add it to Heroku Config Vars <code>REMOVE_BG_API_KEY</code>",
+def TRChatBase(chat_id, message_text, intent):
+    msg = Message(api_key=Config.CBTOKEN,
+                  platform="Telegram",
+                  version="1.3",
+                  user_id=chat_id,
+                  message=message_text,
+                  intent=intent)
+    resp = msg.send()
 
-            disable_web_page_preview=True, parse_mode="html")
 
-        return
+@run_async
+def version(bot, update):
+    TRChatBase(update.message.chat_id, update.message.text, "version")
+    bot.send_message(
+        chat_id=update.message.chat_id,
+        reply_to_message_id=update.message.message_id,
+        text="28.01.2019 19:45:30"
+    )
 
-    await message.edit("Analysing...")
 
-    replied = message.reply_to_message
+@run_async
+def rate(bot, update):
+    TRChatBase(update.message.chat_id, update.message.text, "rate")
+    bot.send_message(
+        chat_id=update.message.chat_id,
+        disable_web_page_preview=True,
+        reply_to_message_id=update.message.message_id,
+        text="""If you like me, please give 5 star ⭐️⭐️⭐️⭐️⭐️ rating at: https://t.me/tlgrmcbot?start=Remove_BGBot-bot
+You can also recommend me @Remove_BGBot to your friends.
+Have a nice day!"""
+    )
 
-    if (replied and replied.media
 
-            and (replied.photo
+@run_async
+def donate(bot, update):
+    TRChatBase(update.message.chat_id, update.message.text, "donate")
+    inline_keyboard = []
+    inline_keyboard.append([
+        InlineKeyboardButton(text="Use Google Pay", url="https://g.co/payinvite/p48pZ")
+    ])
+    inline_keyboard.append([
+        InlineKeyboardButton(text="Use PhonePe", url="https://phon.pe/ru_shri636w3")
+    ])
+    inline_keyboard.append([
+        InlineKeyboardButton(text="Donate to Developer", url="https://donate.shrimadhavuk.me")
+    ])
+    reply_markup = InlineKeyboardMarkup(inline_keyboard)
+    bot.send_message(
+        chat_id=update.message.chat_id,
+        reply_markup=reply_markup,
+        reply_to_message_id=update.message.message_id,
+        text="There are multiple ways to donate: 👇"
+    )
 
-                 or (replied.document and "image" in replied.document.mime_type))):
 
-        start_t = datetime.now()
+@run_async
+def start(bot, update):
+    TRChatBase(update.message.chat_id, update.message.text, "start")
+    bot.send_message(
+        chat_id=update.message.chat_id,
+        reply_to_message_id=update.message.message_id,
+        disable_web_page_preview=True,
+        parse_mode=ParseMode.MARKDOWN,
+        text="""Hi. I am simply a wrapper around the awesome ReMove.BG API.
+By uploading an image or URL, you agree to ReMove.BG's [Terms of Service](https://www.remove.bg/tos).
+        """
+    )
 
-        if os.path.exists(IMG_PATH):
 
-            os.remove(IMG_PATH)
+@run_async
+def got_photo(bot: Bot, update: Update):
+    TRChatBase(update.message.chat_id, update.message.text, "got_photo")
+    msg = update.effective_message # type: Optional[Message]
+    from_user_id = update.effective_chat.id # type: Optional[Chat]
+    file_id = msg.photo[-1].file_id
+    newFile = bot.get_file(file_id)
+    input_file_name = "{}/{}.jpg".format(Config.DOWNLOAD_LOCATION, from_user_id)
+    output_file_name = "{}/{}_nobg.jpg".format(Config.DOWNLOAD_LOCATION, from_user_id)
+    newFile.download(input_file_name)
+    out_put_file_name = ReTrieveFile(input_file_name, output_file_name)
+    bot.send_document(
+        chat_id=update.message.chat_id,
+        reply_to_message_id=update.message.message_id,
+        document=open(out_put_file_name, "rb")
+    )
+    # clean up after send
+    os.remove(input_file_name)
+    os.remove(out_put_file_name)
 
-        await message.client.download_media(message=replied,
 
-                                            file_name=IMG_PATH,
+@run_async
+def got_link(bot: Bot, update: Update):
+    TRChatBase(update.message.chat_id, update.message.text, "got_link")
+    msg = update.effective_message # type: Optional[Message]
+    from_user_id = update.effective_chat.id # type: Optional[Chat]
+    input_url = msg.text
+    output_file_name = "{}/{}_nobg.jpg".format(Config.DOWNLOAD_LOCATION, from_user_id)
+    out_put_file_name = ReTrieveURL(input_url, output_file_name)
+    bot.send_document(
+        chat_id=update.message.chat_id,
+        reply_to_message_id=update.message.message_id,
+        document=open(out_put_file_name, "rb")
+    )
+    # clean up after send
+    os.remove(out_put_file_name)
 
-                                            progress=progress,
 
-                                            progress_args=(message, "Downloading Image"))
+def error(bot, update, error):
+    """Log Errors caused by Updates."""
+    # TRChatBase(update.message.chat_id, update.message.text, "error")
+    logger.warning('Update "%s" caused error "%s"', update, error)
 
-        end_t = datetime.now()
 
-        m_s = (end_t - start_t).seconds
-
-        await message.edit(f"Image saved in {m_s} seconds.\nRemoving Background Now...")
-
-        # Cooking Image
-
-        try:
-
-            rmbg = RemoveBg(Config.REMOVE_BG_API_KEY, "removebg_error.log")
-
-            rmbg.remove_background_from_img_file(IMG_PATH)
-
-            rbg_img_path = IMG_PATH + "_no_bg.png"
-
-            start_t = datetime.now()
-
-            await message.client.send_document(
-
-                chat_id=message.chat.id,
-
-                document=rbg_img_path,
-
-                disable_notification=True,
-
-                progress=progress,
-
-                progress_args=(message, "Uploading", rbg_img_path))
-
-            await message.delete()
-
-        except Exception:
-
-            await message.edit("Something went wrong!\nCheck your usage quota!")
-
-            return
-
+if __name__ == "__main__":
+    if not os.path.exists(Config.DOWNLOAD_LOCATION):
+        os.makedirs(Config.DOWNLOAD_LOCATION)
+    updater = Updater(token=Config.TOKEN)
+    updater.dispatcher.add_handler(CommandHandler('start', start))
+    updater.dispatcher.add_handler(CommandHandler('donate', donate))
+    updater.dispatcher.add_handler(CommandHandler('rate', rate))
+    updater.dispatcher.add_handler(CommandHandler('version', version))
+    updater.dispatcher.add_handler(MessageHandler(Filters.photo, got_photo))
+    updater.dispatcher.add_handler(MessageHandler(Filters.regex(pattern=".*http.*"), got_link))
+    updater.dispatcher.add_error_handler(error)
+    if ENV:
+        updater.start_webhook(
+            listen="0.0.0.0", port=Config.PORT, url_path=TOKEN)
+        updater.bot.set_webhook(url=Config.URL + TOKEN)
     else:
-
-        await message.edit("Reply to a photo to remove 
+        updater.start_polling()
+    updater.idle()
